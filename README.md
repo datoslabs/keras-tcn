@@ -1,19 +1,19 @@
 # Keras TCN
 
-```
+```bash
 pip install keras-tcn
 ```
 
 *Keras Temporal Convolutional Network*
 
    * [Keras TCN](#keras-tcn)
-      * [Table of Contents](#table-of-contents)
       * [Why Temporal Convolutional Network?](#why-temporal-convolutional-network)
       * [API](#api)
          * [Arguments](#arguments)
          * [Input shape](#input-shape)
          * [Output shape](#output-shape)
          * [Receptive field](#receptive-field)
+         * [Non-causal TCN](#non-causal-tcn)
       * [Installation](#installation)
       * [Run](#run)
       * [Tasks](#tasks)
@@ -27,7 +27,6 @@ pip install keras-tcn
             * [Explanation](#explanation-2)
             * [Implementation results](#implementation-results-1)
       * [References](#references)
-
 
 ## Why Temporal Convolutional Network?
 
@@ -44,11 +43,11 @@ pip install keras-tcn
 
 The usual way is to import the TCN layer and use it inside a Keras model. I provide a snippet below to illustrate it on a regression task (cf. `tasks/` for other examples):
 
-```
+```python
 from keras.layers import Dense
 from keras.models import Input, Model
 
-from tcn import tcn
+from tcn import TCN
 
 batch_size, timesteps, input_dim = None, 20, 1
 
@@ -65,7 +64,7 @@ def get_x_y(size=1000):
 
 i = Input(batch_shape=(batch_size, timesteps, input_dim))
 
-o = tcn.TCN(i, return_sequences=False)  # regression problem here.
+o = TCN(return_sequences=False)(i)  # The TCN layers are here.
 o = Dense(1)(o)
 
 m = Model(inputs=[i], outputs=[o])
@@ -75,32 +74,42 @@ x, y = get_x_y()
 m.fit(x, y, epochs=10, validation_split=0.2)
 ```
 
+In the example above, TCNs can also be stacked together, like this:
+
+```python
+o = TCN(return_sequences=True, name='TCN_1')(i)
+o = TCN(return_sequences=False, name='TCN_2')(o)
+```
+
 I also provide a ready to use TCN model that can be imported and used this way (cf. `tasks/` for the full code):
 
-```
-from tcn import tcn
+```python
+from tcn import compiled_tcn
 
-model = tcn.compiled_tcn(...)
+model = compiled_tcn(...)
 model.fit(x, y) # Keras model.
 ```
 
 ### Arguments
 
-`tcn.TCN(input_layer, nb_filters=64, kernel_size=2, nb_stacks=1, dilations=None, activation='norm_relu', use_skip_connections=True, dropout_rate=0.0, output_slice_index=None)`
+`tcn.TCN(nb_filters=64, kernel_size=2, nb_stacks=1, dilations=None, activation='norm_relu', padding='causal', use_skip_connections=True, dropout_rate=0.0, return_sequences=True, name='tcn')`
 
-- `input_layer`: Tensor. A tensor of shape (batch_size, timesteps, input_dim).
 - `nb_filters`: Integer. The number of filters to use in the convolutional layers.
 - `kernel_size`: Integer. The size of the kernel to use in each convolutional layer.
 - `dilations`: List. A dilation list. Example is: [1, 2, 4, 8, 16, 32, 64].
 - `nb_stacks`: Integer. The number of stacks of residual blocks to use.
 - `activation`: String. The activations to use in the residual blocks (norm_relu, wavenet, relu...).
+- `padding`: String. The padding to use in the convolutions. 'causal' for a causal network (as in the original implementation) and 'same' for a non-causal network.
 - `use_skip_connections`: Boolean. If we want to add skip connections from input to each residual block.
 - `return_sequences`: Boolean. Whether to return the last output in the output sequence, or the full sequence.
 - `dropout_rate`: Float between 0 and 1. Fraction of the input units to drop.
+- `name`: Name of the model. Useful when having multiple TCN.
 
 ### Input shape
 
 3D tensor with shape `(batch_size, timesteps, input_dim)`.
+
+`timesteps` can be None. This can be useful if each sequence is of a different length: [Multiple Length Sequence Example](tasks/multi_length_sequences.py).
 
 ### Output shape
 
@@ -139,10 +148,22 @@ For a Many to Many regression, a cheap fix for now is to change the [number of u
 
 Thanks a lot to [@alextheseal](https://github.com/alextheseal) for providing such visuals.
 
+### Non-causal TCN
+
+Making the TCN architecture non-causal allows it to take the future into consideration to do its prediction as shown in the figure below.
+
+However, it is not anymore suitable for real-time applications.
+
+<p align="center">
+  <img src="misc/Non_Causal.png">
+  <b>Non-Causal TCN - ks = 3, dilations = [1, 2, 4, 8], 1 block</b><br><br>
+</p>
+
+Special thanks to: [@qlemaire22](https://github.com/qlemaire22)
 
 ## Installation
 
-```
+```bash
 git clone git@github.com:philipperemy/keras-tcn.git
 cd keras-tcn
 virtualenv -p python3.6 venv
@@ -155,7 +176,7 @@ pip install . --upgrade # install it as a package.
 
 Once `keras-tcn` is installed as a package, you can take a glimpse of what's possible to do with TCNs. Some tasks examples are  available in the repository for this purpose:
 
-```
+```bash
 cd adding_problem/
 python main.py # run adding problem task
 
@@ -253,3 +274,6 @@ The idea here is to consider MNIST images as 1-D sequences and feed them to the 
 - https://arxiv.org/pdf/1803.01271.pdf (An Empirical Evaluation of Generic Convolutional and Recurrent Networks
 for Sequence Modeling)
 - https://arxiv.org/pdf/1609.03499.pdf (Original Wavenet paper)
+
+### Repo views (since 2018/10/30)
+[![HitCount](http://hits.dwyl.io/philipperemy/keras-tcn.svg)](http://hits.dwyl.io/philipperemy/keras-tcn)
